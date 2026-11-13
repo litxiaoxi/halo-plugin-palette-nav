@@ -2,6 +2,7 @@ package cn.litx.palettenav.service;
 
 import cn.litx.palettenav.dto.NavDailyVisit;
 import cn.litx.palettenav.dto.NavDashboardStats;
+import cn.litx.palettenav.dto.NavFooterStats;
 import cn.litx.palettenav.extension.NavLink;
 import cn.litx.palettenav.extension.NavVisitStat;
 import cn.litx.palettenav.extension.NavVisitVisitor;
@@ -79,6 +80,12 @@ public class NavStatsService {
     private static final int VISITOR_RETENTION_DAYS = 1;
     /** How often buffered PV/UV counters are written to the daily stat resource. */
     private static final Duration FLUSH_INTERVAL = Duration.ofSeconds(5);
+    /**
+     * The footer counters only change when a flush lands, so the aggregate read by
+     * every {@code /nav} render is cached for the flush interval instead of listing
+     * the daily stats on each page view.
+     */
+    private static final Duration FOOTER_CACHE_TTL = FLUSH_INTERVAL;
     /** Upper bound for the final flush while the plugin is stopping. */
     private static final Duration FLUSH_TIMEOUT = Duration.ofSeconds(3);
     private static final String STAT_NAME_PREFIX = "nav-visit-";
@@ -115,6 +122,9 @@ public class NavStatsService {
      * correct daily resource.
      */
     private final Map<LocalDate, DailyCounters> counters = new ConcurrentHashMap<>();
+
+    /** Last footer aggregate; entries for another date are ignored across midnight. */
+    private volatile FooterSnapshot footerSnapshot;
 
     private Disposable flushSubscription;
 
@@ -196,6 +206,34 @@ public class NavStatsService {
                 client.countBy(NavLink.class, ListOptions.builder().build())
             )
             .map(tuple -> buildStats(today, tuple.getT1(), tuple.getT2()));
+    }
+
+    /**
+     * Returns the counters shown in the public page footer. Reading statistics is a
+     * best-effort feature: a store failure renders zeros instead of failing the page.
+     * Buffered deltas are not included, matching the dashboard (they are flushed
+     * within {@link #FLUSH_INTERVAL}).
+     */
+    public Mono<NavFooterStats> footerStats() {
+        var today = LocalDate.now();
+        var snapshot = footerSnapshot;
+        if (snapshot != null && snapshot.date().equals(today)
+            && System.currentTimeMillis() - snapshot.readAtMillis()
+                < FOOTER_CACHE_TTL.toMillis()) {
+            return Mono.just(snapshot.stats());
+        }
+        return client.list(NavVisitStat.class, NavEntitySupport::alive,
+                Comparator.comparing(NavStatsService::dateOf))
+            .collectList()
+            .map(stats -> buildFooterStats(today, stats))
+            // Only successful reads replace the cache, so a transient store failure
+            // is retried on the next render instead of sticking for the whole TTL.
+            .doOnNext(stats -> footerSnapshot =
+                new FooterSnapshot(stats, today, System.currentTimeMillis()))
+            .onErrorResume(error -> {
+                log.warn("Failed to read Palette Nav visit statistics: {}", error.toString());
+                return Mono.just(new NavFooterStats(0L, 0L, 0L));
+            });
     }
 
     /**
@@ -630,6 +668,16 @@ public class NavStatsService {
             totalPv, daily);
     }
 
+    /**
+     * Sums the all-time PV and picks today's counters. Delegates to {@link #buildStats}
+     * so the dashboard and footer always agree on skipped specs, duplicated dates
+     * (last wins) and the accumulated total.
+     */
+    static NavFooterStats buildFooterStats(LocalDate today, List<NavVisitStat> daily) {
+        var stats = buildStats(today, daily, 0L);
+        return new NavFooterStats(stats.todayPv(), stats.todayUv(), stats.totalPv());
+    }
+
     private static long valueOf(Long value) {
         return value == null ? 0L : value;
     }
@@ -637,6 +685,10 @@ public class NavStatsService {
     private static String dateOf(NavVisitStat stat) {
         var spec = stat.getSpec();
         return spec == null || spec.getDate() == null ? "" : spec.getDate();
+    }
+
+    /** Footer aggregate plus the date and time it was read at. */
+    private record FooterSnapshot(NavFooterStats stats, LocalDate date, long readAtMillis) {
     }
 
     /** Salt for the day plus the counters waiting to be written. */

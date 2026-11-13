@@ -135,6 +135,30 @@ class NavStatsServiceTest {
     }
 
     @Test
+    void buildFooterStatsPicksTodayAndSumsAllTimePv() {
+        var today = LocalDate.of(2026, 11, 7);
+        var result = NavStatsService.buildFooterStats(today, List.of(
+            stat("2026-10-30", 1000, 20),
+            stat("2026-11-07", 397, 3)
+        ));
+
+        assertEquals(397, result.todayPv());
+        assertEquals(3, result.todayUv());
+        assertEquals(1397, result.totalPv());
+    }
+
+    @Test
+    void buildFooterStatsHandlesMalformedCountersAndMissingToday() {
+        var today = LocalDate.of(2026, 11, 7);
+        var result = NavStatsService.buildFooterStats(today,
+            List.of(new NavVisitStat(), stat("2026-11-06", 5, 1)));
+
+        assertEquals(0, result.todayPv());
+        assertEquals(0, result.todayUv());
+        assertEquals(5, result.totalPv());
+    }
+
+    @Test
     void buildStatsIncludesDaysOutsideTheWindowInTheAllTimeTotal() {
         var today = LocalDate.of(2026, 11, 7);
         var result = NavStatsService.buildStats(today,

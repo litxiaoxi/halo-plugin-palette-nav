@@ -44,8 +44,18 @@ public final class NavSettings {
         private String copyright;
         private String icp;
         private String gonganbei;
+        /** Optional icon shown before the ICP record number; empty renders text only. */
+        private String icpLogoUrl;
+        /** Optional icon shown before the public security record number. */
+        private String gonganbeiLogoUrl;
         /** Whether the public /nav page should record visit statistics. */
         private Boolean enableVisitStats;
+        /**
+         * Whether the public page footer shows today's page views / visitors and the
+         * accumulated page views above the record numbers. Independent of
+         * {@link #enableVisitStats}: stopping the recording only freezes the numbers.
+         */
+        private Boolean showFooterVisitStats;
         /**
          * Comma-separated proxy addresses whose {@code X-Forwarded-For} /
          * {@code X-Real-IP} headers are trusted. Loopback peers are always trusted
@@ -81,7 +91,10 @@ public final class NavSettings {
             copyright = trim(copyright);
             icp = trim(icp);
             gonganbei = trim(gonganbei);
+            icpLogoUrl = trim(icpLogoUrl);
+            gonganbeiLogoUrl = trim(gonganbeiLogoUrl);
             enableVisitStats = enableVisitStats == null || enableVisitStats;
+            showFooterVisitStats = showFooterVisitStats != null && showFooterVisitStats;
             trustedProxyIps = normalizeList(trustedProxyIps);
             return this;
         }
@@ -93,6 +106,13 @@ public final class NavSettings {
         private String defaultNightMode;
         private Boolean showClock;
         private Boolean showYiyan;
+        /**
+         * Whether first-time visitors see the configured background immediately.
+         * A visitor's own toggle choice (localStorage) always wins afterwards.
+         */
+        private Boolean showBackgroundByDefault;
+        /** Whether the in-page category nav shows each category's icon. */
+        private Boolean showCategoryIconsInNav;
         /** Merged background media URL; the kind is stored in {@link #backgroundType}. */
         private String backgroundUrl;
         private String backgroundType;
@@ -124,6 +144,8 @@ public final class NavSettings {
 
             showClock = showClock == null || showClock;
             showYiyan = showYiyan == null || showYiyan;
+            showBackgroundByDefault = showBackgroundByDefault != null && showBackgroundByDefault;
+            showCategoryIconsInNav = showCategoryIconsInNav != null && showCategoryIconsInNav;
 
             backgroundUrl = trim(backgroundUrl);
             var type = trim(backgroundType);

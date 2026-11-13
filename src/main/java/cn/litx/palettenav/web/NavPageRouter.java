@@ -3,16 +3,19 @@ package cn.litx.palettenav.web;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 
 import cn.litx.palettenav.constants.NavConstants;
+import cn.litx.palettenav.config.NavSettings;
 import cn.litx.palettenav.config.NavSettingsService;
 import cn.litx.palettenav.config.NavSiteInfoService;
 import cn.litx.palettenav.service.NavFooterSanitizer;
 import cn.litx.palettenav.service.NavIconSpriteService;
 import cn.litx.palettenav.service.NavMediaType;
 import cn.litx.palettenav.service.NavQueryService;
+import cn.litx.palettenav.service.NavStatsService;
 import cn.litx.palettenav.service.NavUrlValidator;
 import cn.litx.palettenav.service.NavVisitRecorder;
 import cn.litx.palettenav.service.NavYiyanService;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -42,6 +45,7 @@ public class NavPageRouter {
     private final NavSiteInfoService siteInfoService;
     private final NavYiyanService yiyanService;
     private final NavVisitRecorder visitRecorder;
+    private final NavStatsService statsService;
     private final PluginContext pluginContext;
 
     @Bean
@@ -81,6 +85,8 @@ public class NavPageRouter {
                 model.put("defaultNightMode", appearance.getDefaultNightMode());
                 model.put("showClock", appearance.getShowClock());
                 model.put("showYiyan", appearance.getShowYiyan());
+                model.put("showBackgroundByDefault", appearance.getShowBackgroundByDefault());
+                model.put("showCategoryIconsInNav", appearance.getShowCategoryIconsInNav());
                 model.put("yanText", Boolean.TRUE.equals(appearance.getShowYiyan())
                     ? yiyanService.randomQuote() : "");
                 var mergedBackground = NavUrlValidator.trim(appearance.getBackgroundUrl());
@@ -100,30 +106,52 @@ public class NavPageRouter {
                 model.put("icp", general.getIcp());
                 model.put("gonganbei", general.getGonganbei());
                 model.put("gonganbeiCode", firstDigits(general.getGonganbei()));
+                model.put("icpLogoUrl", resolveOptionalImage(general.getIcpLogoUrl()));
+                model.put("gonganbeiLogoUrl",
+                    resolveOptionalImage(general.getGonganbeiLogoUrl()));
                 model.put("seoDescription", general.getSiteDescription());
                 model.put("seoKeywords", general.getSiteKeywords());
                 model.put("siteName", general.getSiteName());
+                model.put("showFooterVisitStats",
+                    Boolean.TRUE.equals(general.getShowFooterVisitStats()));
 
-                return ServerResponse.ok()
-                    .cacheControl(CacheControl.noStore())
-                    .header(HttpHeaders.CONTENT_TYPE, "text/html;charset=UTF-8")
-                    .header("X-Content-Type-Options", "nosniff")
-                    .header("Referrer-Policy", "strict-origin-when-cross-origin")
-                    .render(NavConstants.TEMPLATE_ID, model)
-                    // Count only pages that actually rendered. The recorder queues the
-                    // visit; its single drain subscription runs off the request path,
-                    // so a slow stats update never delays or fails the response.
-                    .doOnSuccess(ignored -> {
-                        if (Boolean.FALSE.equals(general.getEnableVisitStats())) {
-                            return;
-                        }
-                        visitRecorder.record(
-                            request.headers().firstHeader("X-Forwarded-For"),
-                            request.headers().firstHeader("X-Real-IP"),
-                            remoteAddress(request),
-                            userAgent,
-                            general.getTrustedProxyIps());
-                    });
+                if (!Boolean.TRUE.equals(general.getShowFooterVisitStats())) {
+                    return respond(request, model, general, userAgent);
+                }
+                // The footer counters are rendered server-side; when the store is
+                // unavailable footerStats() falls back to zeros rather than failing.
+                return statsService.footerStats()
+                    .map(stats -> {
+                        model.put("footerTodayPv", stats.todayPv());
+                        model.put("footerTodayUv", stats.todayUv());
+                        model.put("footerTotalPv", stats.totalPv());
+                        return model;
+                    })
+                    .flatMap(fullModel -> respond(request, fullModel, general, userAgent));
+            });
+    }
+
+    private Mono<ServerResponse> respond(ServerRequest request, Map<String, Object> model,
+        NavSettings.General general, String userAgent) {
+        return ServerResponse.ok()
+            .cacheControl(CacheControl.noStore())
+            .header(HttpHeaders.CONTENT_TYPE, "text/html;charset=UTF-8")
+            .header("X-Content-Type-Options", "nosniff")
+            .header("Referrer-Policy", "strict-origin-when-cross-origin")
+            .render(NavConstants.TEMPLATE_ID, model)
+            // Count only pages that actually rendered. The recorder queues the
+            // visit; its single drain subscription runs off the request path,
+            // so a slow stats update never delays or fails the response.
+            .doOnSuccess(ignored -> {
+                if (Boolean.FALSE.equals(general.getEnableVisitStats())) {
+                    return;
+                }
+                visitRecorder.record(
+                    request.headers().firstHeader("X-Forwarded-For"),
+                    request.headers().firstHeader("X-Real-IP"),
+                    remoteAddress(request),
+                    userAgent,
+                    general.getTrustedProxyIps());
             });
     }
 
@@ -132,6 +160,14 @@ public class NavPageRouter {
             return configured.trim();
         }
         return NavConstants.DEFAULT_LOGO_ASSET;
+    }
+
+    /**
+     * Optional images (the ICP / public security record icons) render only when the
+     * configured URL passes the same allow-list as other media; there is no fallback.
+     */
+    private String resolveOptionalImage(String configured) {
+        return NavUrlValidator.isSafeImageUrl(configured) ? configured.trim() : "";
     }
 
     private String resolveBrandText(String configured, String siteName, String siteTitle) {

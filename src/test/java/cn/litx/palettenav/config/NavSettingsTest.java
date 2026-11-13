@@ -18,10 +18,26 @@ class NavSettingsTest {
         assertEquals("auto", snapshot.getAppearance().getDefaultNightMode());
         assertTrue(snapshot.getAppearance().getShowClock());
         assertTrue(snapshot.getAppearance().getShowYiyan());
+        assertFalse(snapshot.getAppearance().getShowBackgroundByDefault());
+        assertFalse(snapshot.getAppearance().getShowCategoryIconsInNav());
         assertTrue(snapshot.getSearch().getEnableBaiduSuggestions());
         assertEquals("", snapshot.getIcons().getPolicyName());
         assertEquals("", snapshot.getIcons().getGroupName());
         assertTrue(snapshot.getGeneral().getEnableVisitStats());
+        assertFalse(snapshot.getGeneral().getShowFooterVisitStats());
+        // Record icons are optional: an unconfigured install keeps a text-only footer.
+        assertEquals("", snapshot.getGeneral().getIcpLogoUrl());
+        assertEquals("", snapshot.getGeneral().getGonganbeiLogoUrl());
+    }
+
+    @Test
+    void recordLogoUrlsAreTrimmed() {
+        var general = new NavSettings.General();
+        general.setIcpLogoUrl("  /upload/icp.png  ");
+        general.setGonganbeiLogoUrl("  ");
+        general.normalized();
+        assertEquals("/upload/icp.png", general.getIcpLogoUrl());
+        assertEquals("", general.getGonganbeiLogoUrl());
     }
 
     @Test
@@ -43,6 +59,17 @@ class NavSettingsTest {
         general.setEnableVisitStats(false);
         general.normalized();
         assertFalse(general.getEnableVisitStats());
+    }
+
+    @Test
+    void footerVisitStatsAreHiddenByDefaultUnlessEnabled() {
+        var general = new NavSettings.General();
+        general.normalized();
+        assertFalse(general.getShowFooterVisitStats());
+
+        general.setShowFooterVisitStats(true);
+        general.normalized();
+        assertTrue(general.getShowFooterVisitStats());
     }
 
     @Test
@@ -92,6 +119,28 @@ class NavSettingsTest {
         appearance.setBackgroundUrl("https://example.com/background.MP4?token=1");
         appearance.normalized();
         assertEquals("video", appearance.getBackgroundType());
+    }
+
+    @Test
+    void backgroundIsHiddenByDefaultUnlessEnabled() {
+        var appearance = new Appearance();
+        appearance.normalized();
+        assertFalse(appearance.getShowBackgroundByDefault());
+
+        appearance.setShowBackgroundByDefault(true);
+        appearance.normalized();
+        assertTrue(appearance.getShowBackgroundByDefault());
+    }
+
+    @Test
+    void categoryIconsInNavAreHiddenByDefaultUnlessEnabled() {
+        var appearance = new Appearance();
+        appearance.normalized();
+        assertFalse(appearance.getShowCategoryIconsInNav());
+
+        appearance.setShowCategoryIconsInNav(true);
+        appearance.normalized();
+        assertTrue(appearance.getShowCategoryIconsInNav());
     }
 
     @Test

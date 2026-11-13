@@ -367,6 +367,21 @@ a:hover { color: var(--accent-light); }
     background-position: center;
     background-repeat: no-repeat;
 }
+/* 模板预渲染的视频背景默认不加载/不显示，由 html[data-background-video] 打开。 */
+.bg-video {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -3;
+    pointer-events: none;
+    display: none;
+}
+html[data-background-video] .bg-video {
+    display: block;
+}
 
 /* ---- Main Wrapper ---- */
 .main-wrapper {
@@ -510,7 +525,9 @@ a:hover { color: var(--accent-light); }
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    min-width: 200px;
+    /* 快捷导航框宽度贴合菜单项文字：短名称不再被 200px 下限撑宽，长名称也不溢出。 */
+    min-width: 108px;
+    max-width: 220px;
     background: var(--dropdown-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -539,6 +556,9 @@ a:hover { color: var(--accent-light); }
     color: var(--text-primary);
     font-size: 0.9rem;
     transition: all 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .dropdown-link:hover {
     background: var(--card-bg);
@@ -968,7 +988,9 @@ a:hover { color: var(--accent-light); }
 }
 
 .category-item {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     padding: 8px 20px;
     border-radius: 12px;
     font-size: 0.9rem;
@@ -992,6 +1014,25 @@ a:hover { color: var(--accent-light); }
     background: var(--accent);
     color: #fff;
     box-shadow: 0 4px 12px var(--accent-glow);
+}
+/* 分类图标由「导航栏显示分类图标」开启后输出；分类自身是彩色 logo，无需跟随文字色。 */
+.category-item-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+/* 多一层 .category-item 提升特异性，覆盖后面的全局 svg.icon（22px）规则。 */
+.category-item .category-item-icon svg,
+.category-item .category-item-icon img {
+    width: 18px;
+    height: 18px;
+    vertical-align: middle;
+}
+.category-item-label {
+    line-height: 1;
 }
 
 /* ---- Link Groups ---- */
@@ -1116,7 +1157,32 @@ svg.icon {
     margin-top: auto;
     padding: 20px 0;
     text-align: center;
-    border-top: 1px solid var(--glass-border);
+}
+/* 访问统计显示在备案信息上方，与 footer-content 同一视觉语言。 */
+.footer-stats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: baseline;
+    gap: 4px 14px;
+    margin-bottom: 8px;
+    font-size: 0.75rem;
+    color: var(--footer-text);
+}
+.footer-stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+}
+.footer-stat + .footer-stat::before {
+    content: '·';
+    margin-right: 9px;
+    opacity: 0.6;
+}
+.footer-stat-value {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
 }
 .footer-content {
     display: flex;
@@ -1129,6 +1195,14 @@ svg.icon {
 .footer-item {
     display: inline-flex;
     align-items: center;
+}
+/* 备案图标由用户上传，尺寸按官方小图标（约 16–20px）收敛，保持字标高度。 */
+.footer-item .footer-logo {
+    height: 18px;
+    width: auto;
+    margin-right: 6px;
+    border-radius: 3px;
+    flex-shrink: 0;
 }
 .footer-item .icp,
 .footer-item .gonganbei {
@@ -1294,6 +1368,7 @@ svg.icon {
 /* 文本/emoji 图标 */
 .link-card-icon .icon-text,
 .group-icon .icon-text,
+.category-item-icon .icon-text,
 .engine-option-icon .icon-text,
 .engine-icon .icon-text {
     display: inline-flex;

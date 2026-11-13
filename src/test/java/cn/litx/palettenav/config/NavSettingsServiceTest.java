@@ -21,9 +21,12 @@ class NavSettingsServiceTest {
     void readsAllGroupsFromTheConfigMap() {
         var data = Map.of(
             NavSettings.GROUP_GENERAL,
-            "{\"siteName\":\"My Nav\",\"enableVisitStats\":false}",
+            "{\"siteName\":\"My Nav\",\"enableVisitStats\":false,"
+                + "\"icpLogoUrl\":\"/upload/icp.png\","
+                + "\"gonganbeiLogoUrl\":\"/upload/gonganbei.png\"}",
             NavSettings.GROUP_APPEARANCE,
             "{\"defaultColor\":\"blue\",\"defaultNightMode\":\"dark\","
+                + "\"showBackgroundByDefault\":true,\"showCategoryIconsInNav\":true,"
                 + "\"backgroundUrl\":\"/upload/bg.png\",\"backgroundType\":\"image\"}",
             NavSettings.GROUP_SEARCH, "{\"enableBaiduSuggestions\":false}",
             NavSettings.GROUP_ICONS, "{\"policyName\":\"p1\",\"groupName\":\"g1\"}"
@@ -34,9 +37,13 @@ class NavSettingsServiceTest {
         assertNotNull(snapshot);
         assertEquals("My Nav", snapshot.getGeneral().getSiteName());
         assertFalse(snapshot.getGeneral().getEnableVisitStats());
+        assertEquals("/upload/icp.png", snapshot.getGeneral().getIcpLogoUrl());
+        assertEquals("/upload/gonganbei.png", snapshot.getGeneral().getGonganbeiLogoUrl());
         assertEquals("blue", snapshot.getAppearance().getDefaultColor());
         assertEquals("dark", snapshot.getAppearance().getDefaultNightMode());
         assertEquals("/upload/bg.png", snapshot.getAppearance().getBackgroundUrl());
+        assertTrue(snapshot.getAppearance().getShowBackgroundByDefault());
+        assertTrue(snapshot.getAppearance().getShowCategoryIconsInNav());
         assertFalse(snapshot.getSearch().getEnableBaiduSuggestions());
         assertEquals("p1", snapshot.getIcons().getPolicyName());
         assertEquals("g1", snapshot.getIcons().getGroupName());

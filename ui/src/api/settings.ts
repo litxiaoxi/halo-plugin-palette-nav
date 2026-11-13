@@ -62,8 +62,17 @@ export interface GeneralSettings {
   copyright: string;
   icp: string;
   gonganbei: string;
+  /** Optional icon before the ICP record number; empty renders text only. */
+  icpLogoUrl: string;
+  /** Optional icon before the public security record number. */
+  gonganbeiLogoUrl: string;
   /** Whether the public /nav page records visit statistics for the dashboard. */
   enableVisitStats: boolean;
+  /**
+   * Whether the public page footer shows today's PV/UV and the accumulated PV above
+   * the record numbers. Independent of `enableVisitStats`.
+   */
+  showFooterVisitStats: boolean;
   /** Comma-separated proxy addresses allowed to set X-Forwarded-For / X-Real-IP. */
   trustedProxyIps: string;
 }
@@ -73,6 +82,10 @@ export interface AppearanceSettings {
   defaultNightMode: string;
   showClock: boolean;
   showYiyan: boolean;
+  /** Whether first-time visitors see the configured background immediately. */
+  showBackgroundByDefault: boolean;
+  /** Whether the in-page category nav shows each category's icon. */
+  showCategoryIconsInNav: boolean;
   /** Merged background media: image or video, chosen by `backgroundType`. */
   backgroundUrl: string;
   backgroundType: MediaKind;
@@ -112,7 +125,10 @@ const DEFAULT_VALUES: NavSettingsValues = {
     copyright: "",
     icp: "",
     gonganbei: "",
+    icpLogoUrl: "",
+    gonganbeiLogoUrl: "",
     enableVisitStats: true,
+    showFooterVisitStats: false,
     trustedProxyIps: "",
   },
   appearance: {
@@ -120,6 +136,8 @@ const DEFAULT_VALUES: NavSettingsValues = {
     defaultNightMode: "auto",
     showClock: true,
     showYiyan: true,
+    showBackgroundByDefault: false,
+    showCategoryIconsInNav: false,
     backgroundUrl: "",
     backgroundType: "image",
   },
@@ -230,9 +248,21 @@ export function normalizeSettings(input: unknown): NavSettingsValues {
       copyright: readString(general.copyright, DEFAULT_VALUES.general.copyright).trim(),
       icp: readString(general.icp, DEFAULT_VALUES.general.icp).trim(),
       gonganbei: readString(general.gonganbei, DEFAULT_VALUES.general.gonganbei).trim(),
+      icpLogoUrl: readString(
+        general.icpLogoUrl,
+        DEFAULT_VALUES.general.icpLogoUrl
+      ).trim(),
+      gonganbeiLogoUrl: readString(
+        general.gonganbeiLogoUrl,
+        DEFAULT_VALUES.general.gonganbeiLogoUrl
+      ).trim(),
       enableVisitStats: readBoolean(
         general.enableVisitStats,
         DEFAULT_VALUES.general.enableVisitStats
+      ),
+      showFooterVisitStats: readBoolean(
+        general.showFooterVisitStats,
+        DEFAULT_VALUES.general.showFooterVisitStats
       ),
       trustedProxyIps: normalizeIpList(
         readString(
@@ -255,6 +285,14 @@ export function normalizeSettings(input: unknown): NavSettingsValues {
       showYiyan: readBoolean(
         appearance.showYiyan,
         DEFAULT_VALUES.appearance.showYiyan
+      ),
+      showBackgroundByDefault: readBoolean(
+        appearance.showBackgroundByDefault,
+        DEFAULT_VALUES.appearance.showBackgroundByDefault
+      ),
+      showCategoryIconsInNav: readBoolean(
+        appearance.showCategoryIconsInNav,
+        DEFAULT_VALUES.appearance.showCategoryIconsInNav
       ),
       backgroundUrl,
       backgroundType: resolvedBackgroundType,

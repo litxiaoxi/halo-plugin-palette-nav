@@ -18,13 +18,14 @@ starts on an instance that has no navigation data and no initialization marker.
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 import os
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+
+from nav_dev import basic_auth_header
 
 API_PREFIX = "/apis/palette-nav.halo.run/v1alpha1"
 RESOURCES = {
@@ -38,8 +39,7 @@ RESOURCES = {
 def fetch_all(base_url: str, resource: str, username: str, password: str) -> list[dict]:
     url = f"{base_url.rstrip('/')}{API_PREFIX}/{resource}?size=1000"
     request = urllib.request.Request(url)
-    token = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
-    request.add_header("Authorization", f"Basic {token}")
+    request.add_header("Authorization", basic_auth_header(username, password))
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = json.load(response)

@@ -634,10 +634,18 @@ def test_visit_stats() -> None:
     raw = json.dumps(visitors)
     R.check("raw IP never stored", "127.0.0.1" not in raw)
     R.check("raw User-Agent never stored", f"pn-stats-{TAG}" not in raw)
-    hashes = [(item.get("spec") or {}).get("hash", "") for item in visitors]
+    # Only today's labelled records belong to this run; a shared dev instance can
+    # contain unlabelled leftovers from earlier scripts that have no hash.
+    today_key = today()
+    hashes = [
+        (item.get("spec") or {}).get("hash", "")
+        for item in visitors
+        if (item["metadata"].get("labels") or {}).get(
+            "palette-nav.halo.run/visit-date") == today_key
+    ]
     R.check("visitor hashes are 16 lowercase hex chars",
-            all(len(h) == 16 and all(c in "0123456789abcdef" for c in h)
-                for h in hashes), str(hashes[:3]))
+            hashes and all(len(h) == 16 and all(c in "0123456789abcdef" for c in h)
+                           for h in hashes), str(hashes[:3]))
     R.check("visitor names embed the hash",
             all(item["metadata"]["name"].startswith("nav-visitors-")
                 for item in visitors))
@@ -908,12 +916,21 @@ def test_settings_apply_to_nav() -> None:
                 r.json().get("icon", "").startswith("/upload/"),
                 r.json().get("icon"))
 
+    restored = settings_backup or {}
     restore_settings()
     settings_backup = None
     time.sleep(0.6)
     html = nav_html(f"pn-restore-{TAG}")
-    R.check("settings restored", f"BRAND {TAG}" not in html
-            and "background.jpg" in html)
+    # Compare against snapshot instead of a hard-coded default background: on a
+    # dev instance the original config usually has its own media and site name.
+    conditions = [f"BRAND {TAG}" not in html]
+    original_site = (restored.get("general") or {}).get("siteName")
+    if original_site:
+        conditions.append(original_site in html)
+    original_background = (restored.get("appearance") or {}).get("backgroundUrl")
+    conditions.append(original_background in html if original_background
+                      else "background.jpg" in html)
+    R.check("settings restored", all(conditions))
 
 
 def test_authentication() -> None:

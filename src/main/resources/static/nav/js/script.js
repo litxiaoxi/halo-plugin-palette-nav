@@ -7,6 +7,10 @@
  * 搜索区 DOM 契约：form#search-form / input#search-input /
  * input[name="sou"][data-alias][data-hint] / localStorage['theme_sou']
  * 分类栏 DOM 契约：.category-nav > .category-scroll + .category-arrow[data-scroll-dir]
+ * 背景 DOM 契约：.bg-layer / <video id="bgVideo">（模板预渲染，脚本复用）/
+ * body[data-background-url|data-background-video-url|data-show-background-by-default]；
+ * 可见状态由 html[data-background="image"]、html[data-background-video] 与
+ * .bg-layer.image-bg 表示，档位判断读取 DOM 而不是 localStorage。
  */
 (function () {
     'use strict';
@@ -137,67 +141,126 @@
     // ============ 背景切换 ============
     var bgLayer = document.querySelector('.bg-layer');
 
-    function removeVideoBackground() {
-        var videos = document.querySelectorAll('body > video');
-        for (var i = 0; i < videos.length; i++) {
-            if (videos[i].parentNode) {
-                videos[i].parentNode.removeChild(videos[i]);
+    // 模板在配置了视频背景时会预渲染 <video id="bgVideo">，脚本复用它而不是
+    // 动态插入，首屏才能和图片背景一样在绘制前就命中。没有模板元素时按旧逻辑创建。
+    function videoElement(src) {
+        var video = document.getElementById('bgVideo');
+        if (video) {
+            return video;
+        }
+        video = document.createElement('video');
+        video.id = 'bgVideo';
+        video.className = 'bg-video';
+        video.loop = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.src = src;
+        document.body.appendChild(video);
+        return video;
+    }
+
+    // 自动显示视频时，只有真正开始播放才记录偏好；清理时丢弃未完成的监听。
+    var autoVideoPersist = null;
+
+    function detachAutoVideoPersist(video) {
+        if (autoVideoPersist) {
+            video.removeEventListener('playing', autoVideoPersist);
+            autoVideoPersist = null;
+        }
+    }
+
+    // 只清理画面与首屏属性，不写访客偏好（用于自动默认显示失败回退）。
+    function clearBackgroundVisual() {
+        document.documentElement.removeAttribute('data-background');
+        document.documentElement.removeAttribute('data-background-video');
+        if (bgLayer) {
+            bgLayer.classList.remove('image-bg');
+            bgLayer.style.backgroundImage = 'none';
+        }
+        var video = document.getElementById('bgVideo');
+        if (video) {
+            detachAutoVideoPersist(video);
+            video.onerror = null;
+            try {
+                video.pause();
+            } catch (e) {
+                // 旧浏览器或已卸载的元素
             }
         }
     }
 
-    function setImageBackground() {
+    // auto 为 true 时只显示设置里的默认背景，不写访客偏好：站点默认值不等于
+    // 访客自己的选择，否则管理员关闭「默认显示」后老访客仍会首屏看到背景。
+    function setImageBackground(auto) {
         var url = bodyData('backgroundUrl');
         if (!bgLayer || !url) {
             return false;
         }
-        storageSet(BG_KEY, 'image');
+        if (!auto) {
+            storageSet(BG_KEY, 'image');
+        }
+        clearBackgroundVisual();
         bgLayer.classList.add('image-bg');
         // 模板 <head> 里已有 html[data-background="image"] 的样式规则，
         // 这里同步属性，保证切换开关时首屏规则与运行时状态一致。
         document.documentElement.setAttribute('data-background', 'image');
         bgLayer.style.backgroundImage = 'url("' + url.replace(/"/g, '%22') + '")';
-        removeVideoBackground();
         return true;
     }
 
-    function setVideoBackground() {
+    function setVideoBackground(auto) {
         var src = bodyData('backgroundVideoUrl');
         if (!src) {
             return false;
         }
-        storageSet(BG_KEY, 'video');
         document.documentElement.removeAttribute('data-background');
+        document.documentElement.setAttribute('data-background-video', '');
         if (bgLayer) {
             bgLayer.classList.remove('image-bg');
             bgLayer.style.backgroundImage = 'none';
         }
-        removeVideoBackground();
 
-        var video = document.createElement('video');
-        video.src = src;
-        video.loop = true;
-        video.muted = true;
-        video.autoplay = true;
-        video.playsInline = true;
-        video.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:-3;pointer-events:none;';
-        // 视频地址失效、跨域被拒或浏览器不支持编码时回退到无背景，
-        // 同时把偏好写回 none，否则每次刷新都会重试失败视频、切换按钮也看似无效
-        video.addEventListener('error', function () {
-            clearBackground();
-        });
-        document.body.appendChild(video);
+        var video = videoElement(src);
+        detachAutoVideoPersist(video);
+        if (auto) {
+            // 首访默认显示：等视频真正播放后再记录偏好，失败不落盘，
+            // 否则一次临时故障（源站不可达、编码不支持）会让访客永久失去背景。
+            autoVideoPersist = function () {
+                storageSet(BG_KEY, 'video');
+                detachAutoVideoPersist(video);
+            };
+            video.addEventListener('playing', autoVideoPersist);
+        } else {
+            storageSet(BG_KEY, 'video');
+        }
+        // 视频地址失效、跨域被拒或浏览器不支持编码时回退到无背景。
+        video.onerror = function () {
+            detachAutoVideoPersist(video);
+            if (auto) {
+                clearBackgroundVisual();
+            } else {
+                clearBackground();
+            }
+        };
+        // 模板内的首屏 play() 可能已经失败，补一次判定。
+        if (video.error) {
+            video.onerror();
+            return true;
+        }
+        try {
+            var played = video.play();
+            if (played && typeof played.catch === 'function') {
+                played.catch(function () {});
+            }
+        } catch (e) {
+            // 自动播放被拒时保留已显示的画面
+        }
         return true;
     }
 
     function clearBackground() {
         storageSet(BG_KEY, 'none');
-        document.documentElement.removeAttribute('data-background');
-        if (bgLayer) {
-            bgLayer.classList.remove('image-bg');
-            bgLayer.style.backgroundImage = 'none';
-        }
-        removeVideoBackground();
+        clearBackgroundVisual();
     }
 
     // 后台是否配置了视频背景地址
@@ -205,24 +268,53 @@
         return !!bodyData('backgroundVideoUrl');
     }
 
+    // 后台设置的「首次访问是否直接显示背景」；访客保存过的选择始终优先。
+    function defaultBackgroundKind() {
+        if (bodyData('showBackgroundByDefault') !== 'true') {
+            return '';
+        }
+        return hasVideoBackground() ? 'video' : 'image';
+    }
+
     function restoreBackground() {
-        var saved = storageGet(BG_KEY);
-        // 首次访问（无保存值）不显示图片/视频背景，仅保留主题渐变
-        if (saved === 'video') {
-            if (!setVideoBackground()) {
-                clearBackground();
+        // 无保存值时按设置决定首访默认值；开关关闭时仅保留主题渐变。
+        var stored = storageGet(BG_KEY);
+        var auto = !stored;
+        var kind = stored || defaultBackgroundKind();
+        if (kind === 'video') {
+            // 首访默认值失败时只回退画面、不写 none，下次访问仍会重试。
+            if (!setVideoBackground(auto)) {
+                clearBackgroundVisual();
             }
-        } else if (saved === 'image') {
-            // 配置了视频地址后图片背景不再参与切换，历史偏好清零
-            if (!hasVideoBackground() && setImageBackground()) {
+        } else if (kind === 'image') {
+            if (!hasVideoBackground() && setImageBackground(auto)) {
+                return;
+            }
+            // 配置了视频地址后历史图片偏好失效。若开启了默认显示，直接切到视频
+            // 而不是把访客永久置为无背景；关闭时保持原有清零行为。
+            if (defaultBackgroundKind() === 'video' && setVideoBackground(true)) {
                 return;
             }
             clearBackground();
         }
     }
 
+    // 当前画面是否显示背景要从 DOM 读：首访默认背景在访客点击前可能还没写入
+    // localStorage（视频要等 playing，图片是站点默认值），读存储会把“已显示”
+    // 误判成“未显示”，导致第一次点击背景按钮毫无反应。
+    function visibleBackgroundKind() {
+        if (document.documentElement.hasAttribute('data-background-video')) {
+            return 'video';
+        }
+        if (document.documentElement.getAttribute('data-background') === 'image'
+                || (bgLayer && bgLayer.classList.contains('image-bg'))) {
+            return 'image';
+        }
+        return 'none';
+    }
+
     function cycleBackground() {
-        var current = storageGet(BG_KEY);
+        var current = visibleBackgroundKind();
         // 配置了视频地址：只切换 视频 / 无背景；未配置：只切换 图片 / 无背景
         if (hasVideoBackground()) {
             if (current === 'video') {

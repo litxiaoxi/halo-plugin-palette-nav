@@ -55,8 +55,17 @@
                         'url("' + bgUrl.replace(/"/g, '%22') + '")');
                 }
                 var bgSetting = localStorage.getItem('palette_bgSetting');
-                if (bgSetting === 'image' && bgUrl && !bgVideoUrl) {
+                var bgVisibleByDefault = /*[[${showBackgroundByDefault}]]*/ false;
+                if (bgUrl && !bgVideoUrl
+                        && (bgSetting === 'image'
+                            || (bgSetting == null && bgVisibleByDefault))) {
                     document.documentElement.setAttribute('data-background', 'image');
+                }
+                // 视频背景由模板预渲染，这个属性让它在首屏绘制前就可见。
+                if (bgVideoUrl
+                        && (bgSetting === 'video'
+                            || (bgSetting == null && bgVisibleByDefault))) {
+                    document.documentElement.setAttribute('data-background-video', '');
                 }
             } catch (ignored) {
                 // 隐私模式下 localStorage 不可用，使用默认外观
@@ -79,10 +88,34 @@
               data-night-mode=${defaultNightMode},
               data-background-url=@{${backgroundUrl}},
               data-background-video-url=${backgroundVideoUrl},
+              data-show-background-by-default=${showBackgroundByDefault},
               data-baidu-suggest=${baiduSuggestions}">
 <!-- 只内联当前页面实际引用到的雪碧图符号，避免加载完整 iconfont 脚本。 -->
 <div th:if="${!#strings.isEmpty(iconSpriteHtml)}" th:utext="${iconSpriteHtml}"></div>
 <div class="bg-layer"></div>
+<!-- 视频背景在模板里预渲染，避免动态插入后的渐变闪烁；显示与否由 html 上的
+     data-background-video 属性控制（head 脚本与 script.js 都会维护它）。 -->
+<video id="bgVideo" class="bg-video" th:if="${!#strings.isEmpty(backgroundVideoUrl)}"
+       th:src="${backgroundVideoUrl}" muted loop playsinline preload="none"></video>
+<script th:if="${!#strings.isEmpty(backgroundVideoUrl)}">
+    (function () {
+        try {
+            if (!document.documentElement.hasAttribute('data-background-video')) {
+                return;
+            }
+            var video = document.getElementById('bgVideo');
+            if (!video) {
+                return;
+            }
+            var played = video.play();
+            if (played && typeof played.catch === 'function') {
+                played.catch(function () {});
+            }
+        } catch (ignored) {
+            // 自动播放被拒绝时保持静音视频的画面/占位
+        }
+    }());
+</script>
 
 <div class="main-wrapper">
     <header class="top-bar">
@@ -237,8 +270,12 @@
                 <button type="button" class="category-item active" data-cat="0"
                         aria-pressed="true">全部</button>
                 <button type="button" class="category-item" th:each="category : ${categories}"
-                        th:attr="data-cat=${category.name}"
-                        aria-pressed="false" th:text="${category.displayName}"></button>
+                        th:attr="data-cat=${category.name}" aria-pressed="false">
+                    <span class="category-item-icon"
+                          th:if="${showCategoryIconsInNav and !#strings.isEmpty(category.iconHtml)}"
+                          th:utext="${category.iconHtml}"></span>
+                    <span class="category-item-label" th:text="${category.displayName}"></span>
+                </button>
             </div>
             <button type="button" class="category-arrow category-arrow--next"
                     data-scroll-dir="next" aria-label="向右滚动分类" title="向右滚动">
@@ -288,9 +325,28 @@
 </div>
 
 <footer class="site-footer"
-        th:if="${!#strings.isEmpty(gonganbei) or !#strings.isEmpty(icp) or !#strings.isEmpty(copyright)}">
+        th:if="${showFooterVisitStats or !#strings.isEmpty(gonganbei) or !#strings.isEmpty(icp) or !#strings.isEmpty(copyright)}">
+    <div class="footer-stats" th:if="${showFooterVisitStats}" aria-label="访问统计">
+        <span class="footer-stat">
+            <span class="footer-stat-label">今日浏览</span>
+            <strong class="footer-stat-value"
+                    th:text="${#numbers.formatInteger(footerTodayPv, 1, 'COMMA')}">0</strong>
+        </span>
+        <span class="footer-stat" title="今日独立访客，按天去重">
+            <span class="footer-stat-label">今日访客</span>
+            <strong class="footer-stat-value"
+                    th:text="${#numbers.formatInteger(footerTodayUv, 1, 'COMMA')}">0</strong>
+        </span>
+        <span class="footer-stat" title="建站以来的累计浏览量">
+            <span class="footer-stat-label">累计浏览</span>
+            <strong class="footer-stat-value"
+                    th:text="${#numbers.formatInteger(footerTotalPv, 1, 'COMMA')}">0</strong>
+        </span>
+    </div>
     <div class="footer-content">
         <span class="footer-item" th:if="${!#strings.isEmpty(gonganbei)}">
+            <img th:if="${!#strings.isEmpty(gonganbeiLogoUrl)}" class="footer-logo"
+                 th:src="@{${gonganbeiLogoUrl}}" alt="" loading="lazy" decoding="async">
             <a th:if="${!#strings.isEmpty(gonganbeiCode)}" class="gonganbei"
                th:href="|http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=${gonganbeiCode}|"
                target="_blank" rel="nofollow noopener" th:text="${gonganbei}"></a>
@@ -298,6 +354,8 @@
                   th:text="${gonganbei}"></span>
         </span>
         <span class="footer-item" th:if="${!#strings.isEmpty(icp)}">
+            <img th:if="${!#strings.isEmpty(icpLogoUrl)}" class="footer-logo"
+                 th:src="@{${icpLogoUrl}}" alt="" loading="lazy" decoding="async">
             <a class="icp" href="https://beian.miit.gov.cn/" target="_blank"
                rel="nofollow noopener" th:text="${icp}"></a>
         </span>

@@ -294,6 +294,13 @@ function submit() {
               label="ICP 备案号"
               placeholder="京ICP备xxxxxxxx号"
             />
+            <MediaPicker
+              v-model="settings.general.icpLogoUrl"
+              kind="logo"
+              label="ICP 备案图标"
+              empty-hint="留空只显示备案号文字"
+              help="显示在页脚 ICP 备案号左侧，建议使用约 16–20px 的正方形图标。"
+            />
             <FormKit
               v-model="settings.general.gonganbei"
               name="gonganbei"
@@ -301,6 +308,13 @@ function submit() {
               label="公安备案号"
               placeholder="京公网安备xxxxxxxxxx号"
               help="留空不显示；数字部分会自动生成查询链接。"
+            />
+            <MediaPicker
+              v-model="settings.general.gonganbeiLogoUrl"
+              kind="logo"
+              label="公安备案图标"
+              empty-hint="留空只显示备案号文字"
+              help="显示在页脚公安备案号左侧，建议使用公安部下发的备案图标。"
             />
           </div>
         </VCard>
@@ -316,6 +330,13 @@ function submit() {
               type="switch"
               label="启用访问统计"
               help="关闭后不再记录新的访问，已有历史数据仍会在仪表盘展示。"
+            />
+            <FormKit
+              v-model="settings.general.showFooterVisitStats"
+              name="showFooterVisitStats"
+              type="switch"
+              label="在页脚显示访问统计"
+              help="在备案信息上方展示今日浏览、今日访客与累计浏览。与「启用访问统计」相互独立：关闭记录后，页脚仍会展示已统计的数据。"
             />
             <FormKit
               v-model="settings.general.trustedProxyIps"
@@ -361,6 +382,20 @@ function submit() {
               type="switch"
               label="显示随机一言"
             />
+            <FormKit
+              v-model="settings.appearance.showBackgroundByDefault"
+              name="showBackgroundByDefault"
+              type="switch"
+              label="背景默认显示"
+              help="开启后首次访问直接显示已配置的背景；访客点击右上角背景按钮后以访客的选择为准。关闭时首次访问只显示主题渐变。"
+            />
+            <FormKit
+              v-model="settings.appearance.showCategoryIconsInNav"
+              name="showCategoryIconsInNav"
+              type="switch"
+              label="导航栏显示分类图标"
+              help="开启后在页面分类导航条中显示各分类图标；关闭时导航条只显示分类名称。"
+            />
             <div class="pn-settings-wide">
               <MediaPicker
                 v-model="settings.appearance.backgroundUrl"
@@ -369,7 +404,7 @@ function submit() {
                 label="背景媒体"
                 empty-hint="留空使用插件内置背景图"
                 :fallback-url="DEFAULT_BACKGROUND_URL"
-                help="支持图片与视频（MP4 / WebM / OGG / MOV）；可上传、从附件库选择或输入链接。首次访问只显示渐变背景，访客点击右上角背景按钮后才显示。"
+                help="支持图片与视频（MP4 / WebM / OGG / MOV）；可上传、从附件库选择或输入链接。首次访问是否显示由上方「背景默认显示」决定，访客随时可点击右上角背景按钮切换。"
               />
             </div>
           </div>
