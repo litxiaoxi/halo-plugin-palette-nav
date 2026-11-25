@@ -16,7 +16,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import reactor.core.publisher.Mono;
 import run.halo.app.extension.ReactiveExtensionClient;
 
@@ -146,12 +145,16 @@ public class NavQueryService {
         // @Schema(requiredMode = REQUIRED) is OpenAPI metadata only: Halo's extension
         // store accepts an entity whose urlTemplate is null, and calling trim() on it
         // would turn one malformed search engine into a 500 for the whole public page.
-        var searchUrl = mobile && StringUtils.hasText(spec.getMobileUrlTemplate())
-            ? spec.getMobileUrlTemplate().trim()
+        var mobileTemplate = NavUrlValidator.trim(spec.getMobileUrlTemplate());
+        var searchUrl = mobile && !mobileTemplate.isEmpty()
+            ? mobileTemplate
             : NavUrlValidator.trim(spec.getUrlTemplate());
         if (!NavUrlValidator.isSafeHttpUrl(searchUrl)) {
             return null;
         }
+        // Exposed to the public JSON so server-side callers can choose per visitor
+        // instead of inheriting whatever User-Agent their own request used.
+        var safeMobileUrl = NavUrlValidator.isSafeHttpUrl(mobileTemplate) ? mobileTemplate : "";
         addSpriteId(spriteIds, spec.getIcon());
         return NavPageData.SearchEngineView.builder()
             .alias(NavUrlValidator.trim(spec.getAlias()))
@@ -159,6 +162,7 @@ public class NavQueryService {
             .hint(NavUrlValidator.trim(spec.getHint()))
             .iconHtml(iconRenderer.render(spec.getIcon(), defaultIcon))
             .searchUrl(searchUrl)
+            .mobileSearchUrl(safeMobileUrl)
             .build();
     }
 
@@ -169,7 +173,8 @@ public class NavQueryService {
         }
     }
 
-    private boolean isMobile(String userAgent) {
+    /** Shared with the public JSON cache so its key matches the resolved engine URL. */
+    public static boolean isMobile(String userAgent) {
         return userAgent != null && MOBILE_UA.matcher(userAgent).find();
     }
 }

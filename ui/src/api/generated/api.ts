@@ -17,6 +17,7 @@
 export * from './api/nav-category-v1alpha1-api';
 export * from './api/nav-console-v1alpha1-api';
 export * from './api/nav-link-v1alpha1-api';
+export * from './api/nav-public-v1alpha1-api';
 export * from './api/nav-quick-link-v1alpha1-api';
 export * from './api/nav-search-engine-v1alpha1-api';
 export * from './api/nav-visit-stat-v1alpha1-api';

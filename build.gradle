@@ -107,7 +107,8 @@ haloPlugin {
                 displayName = 'Palette Nav API'
                 pathsToMatch = [
                     '/apis/palette-nav.halo.run/v1alpha1/**',
-                    '/apis/console.api.palette-nav.halo.run/v1alpha1/**'
+                    '/apis/console.api.palette-nav.halo.run/v1alpha1/**',
+                    '/apis/api.palette-nav.halo.run/v1alpha1/**'
                 ]
             }
         }

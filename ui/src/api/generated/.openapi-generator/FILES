@@ -5,6 +5,7 @@ api.ts
 api/nav-category-v1alpha1-api.ts
 api/nav-console-v1alpha1-api.ts
 api/nav-link-v1alpha1-api.ts
+api/nav-public-v1alpha1-api.ts
 api/nav-quick-link-v1alpha1-api.ts
 api/nav-search-engine-v1alpha1-api.ts
 api/nav-visit-stat-v1alpha1-api.ts
@@ -31,6 +32,15 @@ models/nav-link-meta.ts
 models/nav-link-spec.ts
 models/nav-link.ts
 models/nav-ok-result.ts
+models/nav-public-appearance.ts
+models/nav-public-category.ts
+models/nav-public-footer.ts
+models/nav-public-link.ts
+models/nav-public-quick-link.ts
+models/nav-public-search-engine.ts
+models/nav-public-search.ts
+models/nav-public-site.ts
+models/nav-public-view.ts
 models/nav-quick-link-list.ts
 models/nav-quick-link-spec.ts
 models/nav-quick-link.ts

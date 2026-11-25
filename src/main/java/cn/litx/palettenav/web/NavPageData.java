@@ -44,6 +44,12 @@ public class NavPageData {
         private String hint;
         private String iconHtml;
         private String searchUrl;
+        /**
+         * Safe mobile search template, or an empty string when none is configured.
+         * The public JSON view exposes it so server-side consumers can pick the
+         * template themselves instead of relying on the request's User-Agent.
+         */
+        private String mobileSearchUrl;
     }
 
     @Data

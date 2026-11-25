@@ -105,6 +105,23 @@ pnpm -C ui install
 
 新增/编辑链接时点击网址右侧的「获取」，会自动读取网页名称与图标；图标会下载并转存为 Halo 附件，表单保存的是附件地址，不再直接热链接目标站点。转存失败（例如目标站点拒绝访问或图标格式不受存储策略支持）时回退为原图标地址。目标网页无法读取时接口仍返回 200 并带 `fetched=false`，名称与图标按域名回退；该操作会写入附件，因此接口使用 POST。
 
+## 公开 JSON 接口
+
+其他主题或页面可以匿名读取与 `/nav` 相同的分类、链接、搜索引擎与快捷导航数据，以及页面展示配置：
+
+```
+GET /apis/api.palette-nav.halo.run/v1alpha1/nav
+```
+
+- 匿名与已登录用户均可访问，无需额外权限；返回 `application/json`，`Cache-Control: no-store`。
+- 返回 `categories`（分类与链接）、`searchEngines`、`quickLinks`、`spriteHtml`、`contextPath`，以及 `site`（站点名、品牌、LOGO、描述、关键词）、`appearance`（配色、夜间模式、时钟、一言开关、背景）、`search`（百度联想开关）、`footer`（版权、ICP、公安备案）。
+- 与 `/nav` 一致的部分是导航数据与展示配置；**不包含**页面每次随机生成的「一言」文案，也**不返回**访问统计（PV/UV）、`trustedProxyIps`、附件存储策略等运维字段。调用该接口不会计入 PV/UV。
+- 图标字段 `iconHtml` 引用雪碧图符号（`<use href="#pn-*">`），调用方必须先把顶层 `spriteHtml` 注入页面，否则图标不显示。`copyright` 是已按白名单净化的 HTML。
+- 所有站内地址（LOGO、背景、视频、备案图标）都是**根相对路径**，调用方需按 `url.startsWith("/") ? contextPath + url : url` 拼接一次；`contextPath` 在顶层返回，视频地址不再单独预处理。
+- `searchUrl` 按本次请求的 `User-Agent` 选择模板；同时返回 `mobileSearchUrl`（未配置单独的移动端模板时为空），便于服务端渲染的调用方按访客自行选择，而不是继承自己的 UA。响应带 `Vary: User-Agent`。
+- 同一 UA 类型（移动/桌面）与 `contextPath` 的结果缓存 30 秒，保存设置后最多 30 秒生效。
+- 跨域请求由 Halo 的全局 CORS 配置处理（`/apis/**`），插件不额外设置 CORS 头。
+
 ## 安装、升级与卸载
 
 - **安装**：控制台「插件 → 安装」，上传 `palette-nav-<version>.jar` 后启用。首次启用且四类导航数据都为空时，会导入一次内置默认数据；之后即使清空数据也不会再次导入（除非手动删除 `palette-nav-defaults-state` ConfigMap）。
@@ -117,7 +134,7 @@ pnpm -C ui install
 
 - `plugin:palette-nav:manage`：访问 `/console/palette-nav`，管理四类导航数据、拖拽排序、分类级联删除、读取仪表盘，以及读写本插件设置（`configmaps` 的 `get`/`update` 通过 `resourceNames` 限定为 `palette-nav-config`，没有创建任意 ConfigMap 的权限）。
 - 附件相关：上传图标/背景文件并读取 Halo 附件库（`attachments` 读取与上传、存储策略/分组读取）。
-- `/nav` 是公开页面，不需要登录或额外权限。
+- `/nav` 与公开 JSON 接口 `GET /apis/api.palette-nav.halo.run/v1alpha1/nav` 是公开资源，不需要登录或额外权限（对应的 `palette-nav-role-public` 角色同时聚合到 `anonymous` 与 `authenticated`，仅授予该资源的 `get`/`list`）。
 
 ## 隐私与第三方服务
 

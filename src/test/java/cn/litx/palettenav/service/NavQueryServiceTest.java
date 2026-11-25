@@ -166,6 +166,25 @@ class NavQueryServiceTest {
 
         assertEquals("https://www.example.com/s?q=", desktop.getSearchUrl());
         assertEquals("https://m.example.com/s?q=", mobile.getSearchUrl());
+        // The public JSON exposes the mobile template regardless of the caller UA.
+        assertEquals("https://m.example.com/s?q=", desktop.getMobileSearchUrl());
+        assertEquals("https://m.example.com/s?q=", mobile.getMobileSearchUrl());
+    }
+
+    @Test
+    void unsafeMobileTemplateIsNotExposedToThePublicView() {
+        var engine = engine("engine-1", "https://www.example.com/s?q=",
+            "javascript:alert(1)", 10, null);
+        stub(NavCategory.class, List.of());
+        stub(NavLink.class, List.of());
+        stub(NavSearchEngine.class, List.of(engine));
+        stub(NavQuickLink.class, List.of());
+
+        var desktop = service.loadVisiblePageData("Mozilla/5.0 (Windows NT 10.0)", CONTEXT_PATH)
+            .block().getSearchEngines().getFirst();
+
+        assertEquals("https://www.example.com/s?q=", desktop.getSearchUrl());
+        assertEquals("", desktop.getMobileSearchUrl());
     }
 
     @Test

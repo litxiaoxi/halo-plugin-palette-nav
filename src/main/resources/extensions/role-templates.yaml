@@ -51,3 +51,24 @@ rules:
     resources: ["configmaps"]
     resourceNames: ["palette-nav-config"]
     verbs: ["get", "update"]
+---
+# 公开只读 API：/apis/api.palette-nav.halo.run/v1alpha1/nav。
+# 必须同时聚合到 anonymous 与 authenticated：未登录访客走 anonymous，已登录用户
+# （包括管理员预览主题）不再继承 anonymous 的规则，只聚合到 anonymous 会 403。
+# GET 集合请求在 Halo 的 RequestInfoFactory 中被判定为 list，因此 list 必需。
+apiVersion: v1alpha1
+kind: Role
+metadata:
+  name: palette-nav-role-public
+  labels:
+    halo.run/role-template: "true"
+    halo.run/hidden: "true"
+    rbac.authorization.halo.run/aggregate-to-anonymous: "true"
+    rbac.authorization.halo.run/aggregate-to-authenticated: "true"
+  annotations:
+    rbac.authorization.halo.run/module: "Palette Nav"
+    rbac.authorization.halo.run/display-name: "Palette Nav 公开导航数据"
+rules:
+  - apiGroups: ["api.palette-nav.halo.run"]
+    resources: ["nav"]
+    verbs: ["get", "list"]

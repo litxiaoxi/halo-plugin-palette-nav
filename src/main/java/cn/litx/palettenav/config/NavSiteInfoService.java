@@ -1,5 +1,6 @@
 package cn.litx.palettenav.config;
 
+import cn.litx.palettenav.service.NavTextUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -10,8 +11,8 @@ import run.halo.app.extension.ReactiveExtensionClient;
 import run.halo.app.infra.SystemSetting;
 
 /**
- * Reads the Halo site title so the navigation page can fall back to it when the
- * plugin-specific setting is left empty.
+ * Reads the Halo site title and subtitle so the navigation page (and the public JSON
+ * view) can fall back to them when the plugin-specific setting is left empty.
  */
 @Slf4j
 @Service
@@ -26,7 +27,9 @@ public class NavSiteInfoService {
                 fetchBasic(SystemSetting.SYSTEM_CONFIG)
             )
             .map(tuple -> new SiteInfo(
-                firstText(tuple.getT2().getTitle(), tuple.getT1().getTitle())
+                NavTextUtils.firstText(tuple.getT2().getTitle(), tuple.getT1().getTitle()),
+                NavTextUtils.firstText(tuple.getT2().getSubtitle(),
+                    tuple.getT1().getSubtitle())
             ))
             .onErrorResume(error -> {
                 log.warn("Failed to read Halo site settings, using empty fallback: {}",
@@ -50,12 +53,7 @@ public class NavSiteInfoService {
             .defaultIfEmpty(new SystemSetting.Basic());
     }
 
-    private static String firstText(String first, String second) {
-        return StringUtils.hasText(first) ? first.trim()
-            : (StringUtils.hasText(second) ? second.trim() : "");
-    }
-
-    public record SiteInfo(String title) {
-        public static final SiteInfo EMPTY = new SiteInfo("");
+    public record SiteInfo(String title, String subtitle) {
+        public static final SiteInfo EMPTY = new SiteInfo("", "");
     }
 }

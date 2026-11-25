@@ -2,6 +2,11 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 1.1.0 - 2026-11-25
+
+- 新增公开只读 JSON 接口 `GET /apis/api.palette-nav.halo.run/v1alpha1/nav`：匿名与已登录用户均可读取与 `/nav` 一致的分类、链接、搜索引擎、快捷导航、图标雪碧图及展示配置（品牌、背景、配色、页脚备案、SEO），不包含随机一言、访问统计与运维字段，调用不计入 PV/UV。负载内站内地址统一为根相对路径并返回 `contextPath`，搜索引擎额外提供 `mobileSearchUrl`，结果缓存 30 秒。
+- 内部：`/nav` 与公开接口共用 `NavPublicViewService`，避免 HTML 与 JSON 数据不一致；公开角色同时聚合到 `anonymous` 与 `authenticated`；公开 API 组加入 OpenAPI 分组并重新生成控制台 API 客户端。
+
 ## 1.0.2 - 2026-11-13
 
 - 外观：新增「背景默认显示」开关，关闭时首次访问只显示主题渐变；开启后首次访问即显示已配置的图片或视频，访客保存过的切换选择优先。

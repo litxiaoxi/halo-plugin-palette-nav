@@ -7,6 +7,8 @@ public final class NavConstants {
 
     public static final String PLUGIN_NAME = "palette-nav";
     public static final String CONSOLE_API_GROUP = "console.api.palette-nav.halo.run";
+    /** Public read-only group for themes and other anonymous callers. */
+    public static final String PUBLIC_API_GROUP = "api.palette-nav.halo.run";
     public static final String API_VERSION = "v1alpha1";
 
     public static final String TEMPLATE_NAME = "palette-nav";
